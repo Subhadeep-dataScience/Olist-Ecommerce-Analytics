@@ -1,0 +1,2 @@
+CREATE DATABASE Olist_Ecommerce_Analytics;
+GO

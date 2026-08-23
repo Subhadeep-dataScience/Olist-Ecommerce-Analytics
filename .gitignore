@@ -1,0 +1,30 @@
+# SQL Server backup files
+*.bak
+*.trn
+*.ldf
+*.mdf
+
+# SQL Server temporary files
+*.log
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# Operating system files
+.DS_Store
+Thumbs.db
+
+# VS Code settings
+.vscode/
+
+# Large or generated files
+data/processed/
+
+# Raw dataset files (download separately)
+data/raw/*.csv
