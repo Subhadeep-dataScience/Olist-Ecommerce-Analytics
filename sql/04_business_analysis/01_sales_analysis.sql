@@ -52,9 +52,14 @@ SELECT
     SUM(price + freight_value) AS GrossOrderValue,
 
     CAST(
-        SUM(price) / COUNT(DISTINCT order_id)
+        SUM(price) * 1.0 / NULLIF(COUNT(DISTINCT order_id), 0)
         AS DECIMAL(18,2)
-    ) AS AverageOrderValue
+    ) AS AverageProductOrderValue,
+
+    CAST(
+        SUM(gross_item_value) * 1.0 / NULLIF(COUNT(DISTINCT order_id), 0)
+        AS DECIMAL(18,2)
+    ) AS AverageGrossOrderValue
 
 FROM analytics.vw_OrderSales;
 GO

@@ -14,7 +14,7 @@ actionable insights from the Olist E-Commerce dataset.
 SELECT
     COUNT(DISTINCT o.order_id) AS TotalOrders,
     
-    COUNT(DISTINCT o.customer_id) AS TotalCustomers,
+    COUNT(DISTINCT c.customer_unique_id) AS TotalUniqueCustomers,
     
     CAST(SUM(oi.price) AS DECIMAL(18,2)) AS ProductRevenue,
     
@@ -26,9 +26,11 @@ SELECT
         SUM(oi.price + oi.freight_value) * 1.0 /
         NULLIF(COUNT(DISTINCT o.order_id), 0)
         AS DECIMAL(18,2)
-    ) AS AverageOrderValue
+    ) AS AverageGrossOrderValue
 
 FROM core.orders AS o
+INNER JOIN core.Customers AS c
+    ON c.customer_id = o.customer_id
 INNER JOIN core.OrderItems AS oi
     ON o.order_id = oi.order_id
 WHERE o.order_status = 'delivered';
@@ -114,70 +116,53 @@ SECTION 3: CATEGORY PERFORMANCE & CUSTOMER SATISFACTION
 =========================================================
 */
 
-SELECT TOP 10
-    COALESCE(
-        ct.product_category_name_english,
-        'Unknown'
-    ) AS ProductCategory,
-
-    COUNT(DISTINCT oi.order_id) AS TotalOrders,
-
-    CAST(SUM(oi.price + oi.freight_value) AS DECIMAL(18,2))
-        AS TotalRevenue,
-
-    CAST(AVG(CAST(r.review_score AS DECIMAL(10,2))) AS DECIMAL(10,2))
-        AS AverageReviewScore
-
-FROM core.OrderItems AS oi
-
-INNER JOIN core.orders AS o
-    ON oi.order_id = o.order_id
-
-LEFT JOIN core.Products AS p
-    ON oi.product_id = p.product_id
-
-LEFT JOIN core.ProductCategoryTranslation AS ct
-    ON p.product_category_name = ct.product_category_name
-
-LEFT JOIN core.OrderReviews AS r
-    ON oi.order_id = r.order_id
-
-WHERE o.order_status = 'delivered'
-
-GROUP BY
-    COALESCE(ct.product_category_name_english, 'Unknown')
-
-ORDER BY TotalRevenue DESC;
+WITH DeliveredOrderItems AS
+(
+    SELECT
+        oi.order_id,
+        COALESCE(ct.product_category_name_english, 'Unknown') AS ProductCategory,
+        oi.price,
+        oi.freight_value
+    FROM core.OrderItems AS oi
+    INNER JOIN core.Orders AS o ON o.order_id = oi.order_id
+    LEFT JOIN core.Products AS p ON p.product_id = oi.product_id
+    LEFT JOIN core.ProductCategoryTranslation AS ct
+        ON ct.product_category_name = p.product_category_name
+    WHERE o.order_status = 'delivered'
+),
+CategoryRevenue AS
+(
+    SELECT ProductCategory, COUNT(DISTINCT order_id) AS TotalOrders,
+           CAST(SUM(price + freight_value) AS DECIMAL(18,2)) AS GrossOrderValue
+    FROM DeliveredOrderItems
+    GROUP BY ProductCategory
+),
+OrderReview AS
+(
+    SELECT order_id, AVG(CAST(review_score AS DECIMAL(10,2))) AS AverageOrderReview
+    FROM core.OrderReviews
+    GROUP BY order_id
+),
+OrderCategory AS
+(
+    SELECT DISTINCT order_id, ProductCategory FROM DeliveredOrderItems
+),
+CategoryExperience AS
+(
+    SELECT oc.ProductCategory,
+           CAST(AVG(orv.AverageOrderReview) AS DECIMAL(10,2)) AS AverageReviewScore
+    FROM OrderCategory AS oc
+    INNER JOIN OrderReview AS orv ON orv.order_id = oc.order_id
+    GROUP BY oc.ProductCategory
+)
+SELECT TOP 10 cr.ProductCategory, cr.TotalOrders, cr.GrossOrderValue, ce.AverageReviewScore
+FROM CategoryRevenue AS cr
+LEFT JOIN CategoryExperience AS ce ON ce.ProductCategory = cr.ProductCategory
+ORDER BY cr.GrossOrderValue DESC;
 GO
 
-
-/*
-BUSINESS INSIGHT #3 – CATEGORY PERFORMANCE
-
-• Health & Beauty was the highest-revenue category, generating approximately
-  R$1.42 million while maintaining a strong average review score of 4.19.
-
-• Sports & Leisure and Cool Stuff also demonstrated a strong combination of
-  revenue generation and customer satisfaction.
-
-• Bed, Bath & Table generated high revenue but had the lowest customer
-  satisfaction score among the top three revenue-generating categories (3.92).
-
-• Furniture & Decor and Computers & Accessories also showed relatively lower
-  review scores compared with other top-performing categories.
-
-BUSINESS INTERPRETATION:
-High-revenue categories should not be evaluated only by sales. Categories with
-high sales but comparatively lower customer satisfaction should be investigated
-for potential issues related to product quality, seller performance, delivery,
-or customer expectations.
-*/
-
---How did I generate actionable insights?
-/*"Instead of analyzing revenue alone, I combined category revenue with customer review scores. 
-This helped identify categories that were commercially successful but had comparatively lower customer satisfaction, highlighting areas 
-where the business could investigate operational or product-related issues."*/
-
+/* Revenue stays at item grain; reviews are reduced to one order-level score
+   before the category experience join. The comparison is descriptive, not causal. */
 
 /*
 =========================================================
@@ -380,11 +365,13 @@ SECTION 7: PAYMENT METHOD PERFORMANCE
 WITH PaymentSummary AS
 (
     SELECT
-        payment_type,
-        COUNT(DISTINCT order_id) AS TotalOrders,
-        SUM(payment_value) AS TotalPaymentValue
-    FROM core.OrderPayments
-    GROUP BY payment_type
+        p.payment_type,
+        COUNT(DISTINCT p.order_id) AS TotalOrders,
+        SUM(p.payment_value) AS TotalPaymentValue
+    FROM core.OrderPayments AS p
+    INNER JOIN core.Orders AS o ON o.order_id = p.order_id
+    WHERE o.order_status = 'delivered'
+    GROUP BY p.payment_type
 )
 SELECT
     payment_type AS PaymentMethod,

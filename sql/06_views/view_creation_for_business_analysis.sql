@@ -1,6 +1,10 @@
 --We'll create a reusable sales-level view.
 USE Olist_Ecommerce_Analytics;
 GO
+
+IF SCHEMA_ID('analytics') IS NULL
+    EXEC('CREATE SCHEMA analytics');
+GO
 CREATE OR ALTER VIEW analytics.vw_OrderSales
 AS
 SELECT
@@ -16,7 +20,8 @@ SELECT
     oi.price + oi.freight_value AS gross_item_value
 FROM core.Orders AS o
 INNER JOIN core.OrderItems AS oi
-    ON o.order_id = oi.order_id;
+    ON o.order_id = oi.order_id
+WHERE o.order_status = 'delivered';
 GO
 
 
@@ -49,6 +54,8 @@ INNER JOIN core.Orders AS o
 
 INNER JOIN core.OrderItems AS oi
     ON o.order_id = oi.order_id
+
+WHERE o.order_status = 'delivered'
 
 GROUP BY
     c.customer_unique_id;
