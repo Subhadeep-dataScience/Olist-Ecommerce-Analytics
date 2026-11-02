@@ -1,58 +1,39 @@
---core.Customers
- CONSTRAINT PK_Customers
-        PRIMARY KEY (customer_id)
+USE Olist_Ecommerce_Analytics;
+GO
 
---core.Orders
- CONSTRAINT PK_Orders
-        PRIMARY KEY (order_id)
+/*
+Core constraints are declared with the table definitions in
+sql/01_database/02_create_tables.sql. This script audits existing constraints;
+it does not add duplicate or incomplete fragments.
+*/
 
---core.Products
- CONSTRAINT PK_Products
-        PRIMARY KEY (product_id)
+SELECT
+    SCHEMA_NAME(t.schema_id) AS schema_name,
+    t.name AS table_name,
+    kc.name AS constraint_name,
+    kc.type_desc AS constraint_type,
+    kc.is_disabled,
+    kc.is_not_trusted
+FROM sys.key_constraints AS kc
+INNER JOIN sys.tables AS t ON t.object_id = kc.parent_object_id
+WHERE SCHEMA_NAME(t.schema_id) = 'core'
 
---core.Sellers
-CONSTRAINT PK_Sellers
-        PRIMARY KEY (seller_id)
+UNION ALL
 
---core.OrderItems
-    CONSTRAINT PK_OrderItems
-        PRIMARY KEY (order_id, order_item_id),
+SELECT
+    SCHEMA_NAME(t.schema_id), t.name, fk.name, 'FOREIGN_KEY',
+    fk.is_disabled, fk.is_not_trusted
+FROM sys.foreign_keys AS fk
+INNER JOIN sys.tables AS t ON t.object_id = fk.parent_object_id
+WHERE SCHEMA_NAME(t.schema_id) = 'core'
 
-    CONSTRAINT FK_OrderItems_Orders
-        FOREIGN KEY (order_id)
-        REFERENCES core.Orders(order_id),
+UNION ALL
 
-    CONSTRAINT FK_OrderItems_Products
-        FOREIGN KEY (product_id)
-        REFERENCES core.Products(product_id),
-
-    CONSTRAINT FK_OrderItems_Sellers
-        FOREIGN KEY (seller_id)
-        REFERENCES core.Sellers(seller_id)
-
---core.OrderPayments
-    CONSTRAINT PK_OrderPayments
-        PRIMARY KEY (order_id, payment_sequential),
-
-    CONSTRAINT FK_OrderPayments_Orders
-        FOREIGN KEY (order_id)
-        REFERENCES core.Orders(order_id)
-
---core.OrderReviews
-    CONSTRAINT PK_OrderReviews
-        PRIMARY KEY (review_key),
-
-    CONSTRAINT FK_OrderReviews_Orders
-        FOREIGN KEY (order_id)
-        REFERENCES core.Orders(order_id),
-
-    CONSTRAINT CK_OrderReviews_Score
-        CHECK (review_score BETWEEN 1 AND 5)
-
---core.ProductCategoryTranslation
-    CONSTRAINT PK_ProductCategoryTranslation
-        PRIMARY KEY (product_category_name)
-
---core.Geolocation
-CONSTRAINT PK_Geolocation
-        PRIMARY KEY (geolocation_key)
+SELECT
+    SCHEMA_NAME(t.schema_id), t.name, cc.name, 'CHECK_CONSTRAINT',
+    cc.is_disabled, cc.is_not_trusted
+FROM sys.check_constraints AS cc
+INNER JOIN sys.tables AS t ON t.object_id = cc.parent_object_id
+WHERE SCHEMA_NAME(t.schema_id) = 'core'
+ORDER BY schema_name, table_name, constraint_type, constraint_name;
+GO
