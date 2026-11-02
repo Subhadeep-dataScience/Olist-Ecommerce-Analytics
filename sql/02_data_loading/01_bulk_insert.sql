@@ -4,7 +4,7 @@
 USE Olist_Ecommerce_Analytics;
 GO
 BULK INSERT staging.olist_customers
-FROM 'D:\data science karmick\sql\Olist-Ecommerce-Analytics\data\raw\olist_customers_dataset.csv'
+FROM 'C:\path\to\Olist-Ecommerce-Analytics\data\raw\olist_customers_dataset.csv'
 WITH
 (
     FORMAT = 'CSV',
@@ -29,7 +29,7 @@ USE Olist_Ecommerce_Analytics;
 GO
 
 BULK INSERT staging.olist_orders
-FROM 'D:\data science karmick\sql\Olist-Ecommerce-Analytics\data\raw\olist_orders_dataset.csv'
+FROM 'C:\path\to\Olist-Ecommerce-Analytics\data\raw\olist_orders_dataset.csv'
 WITH
 (
     FORMAT = 'CSV',
@@ -49,7 +49,7 @@ FROM staging.olist_orders;
 
 --Load order_items
 BULK INSERT staging.olist_order_items
-FROM 'D:\data science karmick\sql\Olist-Ecommerce-Analytics\data\raw\olist_order_items_dataset.csv'
+FROM 'C:\path\to\Olist-Ecommerce-Analytics\data\raw\olist_order_items_dataset.csv'
 WITH
 (
     FORMAT = 'CSV',
@@ -67,7 +67,7 @@ FROM staging.olist_order_items;
 
 --Load order_payments
 BULK INSERT staging.olist_order_payments
-FROM 'D:\data science karmick\sql\Olist-Ecommerce-Analytics\data\raw\olist_order_payments_dataset.csv'
+FROM 'C:\path\to\Olist-Ecommerce-Analytics\data\raw\olist_order_payments_dataset.csv'
 WITH
 (
     FORMAT = 'CSV',
@@ -86,7 +86,7 @@ FROM staging.olist_order_payments;
 
 --Load order_reviews  note: FIELDTERMINATOR = ','  and  ROWTERMINATOR = '0x0a', should be excluded if you need to load large character data
 BULK INSERT staging.olist_order_reviews
-FROM 'D:\data science karmick\sql\Olist-Ecommerce-Analytics\data\raw\olist_order_reviews_dataset.csv'
+FROM 'C:\path\to\Olist-Ecommerce-Analytics\data\raw\olist_order_reviews_dataset.csv'
 WITH
 (
     FORMAT = 'CSV',
@@ -106,7 +106,7 @@ FROM staging.olist_order_reviews;
 
 --Load products
 BULK INSERT staging.olist_products
-FROM 'D:\data science karmick\sql\Olist-Ecommerce-Analytics\data\raw\olist_products_dataset.csv'
+FROM 'C:\path\to\Olist-Ecommerce-Analytics\data\raw\olist_products_dataset.csv'
 WITH
 (
     FORMAT = 'CSV',
@@ -124,7 +124,7 @@ FROM staging.olist_products;
 
 --Load sellers
 BULK INSERT staging.olist_sellers
-FROM 'D:\data science karmick\sql\Olist-Ecommerce-Analytics\data\raw\olist_sellers_dataset.csv'
+FROM 'C:\path\to\Olist-Ecommerce-Analytics\data\raw\olist_sellers_dataset.csv'
 WITH
 (
     FORMAT = 'CSV',
@@ -142,7 +142,7 @@ FROM staging.olist_sellers;
 
 --load geolocation
 BULK INSERT staging.olist_geolocation
-FROM 'D:\data science karmick\sql\Olist-Ecommerce-Analytics\data\raw\olist_geolocation_dataset.csv'
+FROM 'C:\path\to\Olist-Ecommerce-Analytics\data\raw\olist_geolocation_dataset.csv'
 WITH
 (
     FORMAT = 'CSV',
@@ -160,7 +160,7 @@ FROM staging.olist_geolocation;
 
 --load product_category_translation
 BULK INSERT staging.product_category_translation
-FROM 'D:\data science karmick\sql\Olist-Ecommerce-Analytics\data\raw\product_category_name_translation.csv'
+FROM 'C:\path\to\Olist-Ecommerce-Analytics\data\raw\product_category_name_translation.csv'
 WITH
 (
     FORMAT = 'CSV',
