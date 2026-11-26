@@ -8,7 +8,7 @@ from prepare_olist import DATASETS, ValidationError, normalize, validate
 
 SAMPLES = {
     "olist_customers_dataset.csv": [["c1", "u1", "12345", "city", "ST"]],
-    "olist_orders_dataset.csv": [["o1", "c1", "delivered", "2017-01-01 00:00:00", "2017-01-02 00:00:00"]],
+    "olist_orders_dataset.csv": [["o1", "c1", "delivered", "2017-01-01 00:00:00", "", "", "", "2017-01-02 00:00:00"]],
     "olist_order_items_dataset.csv": [["o1", "1", "p1", "s1", "2017-01-02 00:00:00", "10.00", "2.00"]],
     "olist_order_payments_dataset.csv": [["o1", "1", "credit_card", "1", "12.00"]],
     "olist_order_reviews_dataset.csv": [["r1", "o1", "5", "", "", "2017-01-03 00:00:00", "2017-01-04 00:00:00"],
@@ -67,6 +67,18 @@ class PrepareOlistTests(unittest.TestCase):
                 writer.writerow(DATASETS[1].required_columns)
                 writer.writerow(["o1", "missing_customer", "delivered", "2017-01-01", "2017-01-02"])
             with self.assertRaisesRegex(ValidationError, "references unknown key"):
+                validate(raw)
+
+    def test_reordered_or_extra_header_fails(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            raw = self.make_input(root)
+            path = raw / "olist_customers_dataset.csv"
+            with path.open("w", encoding="utf-8", newline="") as handle:
+                writer = csv.writer(handle)
+                writer.writerow(list(reversed(DATASETS[0].required_columns)))
+                writer.writerow(list(reversed(SAMPLES[path.name][0])))
+            with self.assertRaisesRegex(ValidationError, "import order exactly"):
                 validate(raw)
 
     def test_invalid_review_score_fails(self):
