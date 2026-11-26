@@ -49,7 +49,7 @@ Prerequisites: Python 3.10+, SQL Server 2017 or later, SSMS, the nine Olist CSV 
 1. Run `sql/01_database/01_create_database.sql` once, then `02_create_tables.sql`.
 2. Download and extract the nine original CSVs into `data/raw/` (the script does not download data).
 3. Run `python python/prepare_olist.py --input data/raw --output data/processed/sql_server`. It checks required columns and values, duplicate primary/composite keys, review-score bounds, and key relationships. It preserves source rows and writes normalized UTF-8/LF CSVs plus `manifest.json` with row counts and SHA-256 hashes only when validation passes.
-4. In `sql/02_data_loading/01_bulk_insert.sql`, replace the `C:\\path\\to\\Olist-Ecommerce-Analytics` placeholder with the absolute local repository path. Confirm the SQL Server service account can read `data/processed/sql_server/`, then load staging tables.
+4. In `sql/02_data_loading/01_bulk_insert.sql`, replace the placeholder path with the absolute local repository path. Confirm the SQL Server service account can read `data/processed/sql_server/`, then load staging tables.
 5. Run `sql/03_data_quality/` scripts and review the results.
 6. Run `sql/02_data_loading/02_load_core_from_staging.sql`. This transactionally replaces core rows from validated staging data.
 7. Run `sql/01_database/03_constraints.sql` to inspect inline constraints, then `04_indexes.sql`.
