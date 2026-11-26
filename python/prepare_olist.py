@@ -15,7 +15,6 @@ import os
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable
 
 @dataclass(frozen=True)
 class Dataset:
@@ -26,7 +25,7 @@ class Dataset:
 
 DATASETS = (
     Dataset("olist_customers_dataset.csv", ("customer_id", "customer_unique_id", "customer_zip_code_prefix", "customer_city", "customer_state"), ("customer_id",), ("customer_id", "customer_unique_id")),
-    Dataset("olist_orders_dataset.csv", ("order_id", "customer_id", "order_status", "order_purchase_timestamp", "order_estimated_delivery_date"), ("order_id",), ("order_id", "customer_id", "order_status")),
+    Dataset("olist_orders_dataset.csv", ("order_id", "customer_id", "order_status", "order_purchase_timestamp", "order_approved_at", "order_delivered_carrier_date", "order_delivered_customer_date", "order_estimated_delivery_date"), ("order_id",), ("order_id", "customer_id", "order_status", "order_purchase_timestamp", "order_estimated_delivery_date")),
     Dataset("olist_order_items_dataset.csv", ("order_id", "order_item_id", "product_id", "seller_id", "shipping_limit_date", "price", "freight_value"), ("order_id", "order_item_id"), ("order_id", "product_id", "seller_id")),
     Dataset("olist_order_payments_dataset.csv", ("order_id", "payment_sequential", "payment_type", "payment_installments", "payment_value"), ("order_id", "payment_sequential"), ("order_id", "payment_type")),
     # Review records intentionally have no unique source key: duplicate review_id
@@ -69,6 +68,9 @@ def validate(raw_dir: Path) -> tuple[dict[str, dict[str, object]], dict[str, set
                 missing = sorted(set(spec.required_columns) - set(header))
                 if missing:
                     errors.append(f"{spec.filename}: missing columns {', '.join(missing)}")
+                    continue
+                if tuple(header) != spec.required_columns:
+                    errors.append(f"{spec.filename}: columns must match SQL Server import order exactly")
                     continue
                 seen: set[str] = set()
                 duplicates = 0
