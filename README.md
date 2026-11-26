@@ -28,7 +28,6 @@ Re-run the SQL against the local dataset before publishing figures. Narrative va
 ## Layout
 
 ```text
-sql/
 python/
   prepare_olist.py    CSV validation, normalization, and manifest generation
   tests/              standard-library unit tests
