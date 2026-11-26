@@ -5,7 +5,8 @@ IF OBJECT_ID('tempdb..#CustomerRFM') IS NOT NULL
     DROP TABLE #CustomerRFM;
 
 /* Delivered orders only; customer_unique_id is the customer grain.
-   PERCENT_RANK gives tied metric values the same score band. */
+   PERCENT_RANK gives tied metric values the same score band. The one-time
+   labels below describe relative recency bands, not a fixed inactivity period. */
 WITH AnalysisDate AS
 (
     SELECT MAX(order_purchase_timestamp) AS max_purchase_date
@@ -49,8 +50,8 @@ Segmented AS
     SELECT
         *,
         CASE
-            WHEN frequency = 1 AND r_score >= 4 THEN 'Recent One-Time'
-            WHEN frequency = 1 THEN 'One-Time, Lapsed'
+            WHEN frequency = 1 AND r_score >= 4 THEN 'One-Time: Recent Band'
+            WHEN frequency = 1 THEN 'One-Time: Other Bands'
             WHEN r_score >= 4 AND f_score >= 4 AND m_score >= 4 THEN 'Champions'
             WHEN r_score >= 3 AND f_score >= 4 THEN 'Loyal Repeat'
             WHEN r_score >= 4 AND f_score >= 2 THEN 'Potential Loyalist'

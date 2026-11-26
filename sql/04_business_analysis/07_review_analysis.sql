@@ -11,257 +11,127 @@ Purpose:
     Analyze review scores and investigate the relationship
     between delivery performance and customer satisfaction.
 
-Sources:
-    core.OrderReviews
-    analytics.vw_DeliveryPerformance
+Grain:
+    Review distribution uses physical review records.
+    Delivery and customer comparisons average review rows to
+    one score per order before joining to order-level dimensions.
 =========================================================
 */
 
-
-/* =======================================================
-   1. OVERALL REVIEW KPIs
-   ======================================================= */
-
+/* 1. Overall review KPIs: physical review-record grain */
 SELECT
     COUNT(*) AS TotalReviewRecords,
-
     COUNT(DISTINCT order_id) AS OrdersWithReviews,
-
-    AVG(review_score * 1.0) AS AverageReviewScore,
-
+    AVG(review_score * 1.0) AS AverageReviewScorePerRecord,
     MIN(review_score) AS MinimumReviewScore,
-
     MAX(review_score) AS MaximumReviewScore
-
 FROM core.OrderReviews;
 GO
 
-
-/* =======================================================
-   2. REVIEW SCORE DISTRIBUTION
-   ======================================================= */
-
+/* 2. Review score distribution: physical review-record grain */
 SELECT
     review_score,
-
-    COUNT(*) AS ReviewCount,
-
-    CAST(
-        100.0 * COUNT(*) /
-        SUM(COUNT(*)) OVER ()
-        AS DECIMAL(10,2)
-    ) AS ReviewSharePercent
-
+    COUNT(*) AS ReviewRecords,
+    CAST(100.0 * COUNT(*) / NULLIF(SUM(COUNT(*)) OVER (), 0) AS DECIMAL(10,2))
+        AS ReviewRecordSharePercent
 FROM core.OrderReviews
-
-GROUP BY
-    review_score
-
-ORDER BY
-    review_score;
+GROUP BY review_score
+ORDER BY review_score;
 GO
 
-
-/* =======================================================
-   3. POSITIVE VS NEGATIVE REVIEWS
-   ======================================================= */
-
+/* 3. Positive vs negative review records */
 SELECT
     CASE
-        WHEN review_score >= 4
-            THEN 'Positive (4-5)'
-
-        WHEN review_score <= 2
-            THEN 'Negative (1-2)'
-
+        WHEN review_score >= 4 THEN 'Positive (4-5)'
+        WHEN review_score <= 2 THEN 'Negative (1-2)'
         ELSE 'Neutral (3)'
     END AS ReviewCategory,
-
-    COUNT(*) AS ReviewCount,
-
-    CAST(
-        100.0 * COUNT(*) /
-        SUM(COUNT(*)) OVER ()
-        AS DECIMAL(10,2)
-    ) AS ReviewSharePercent
-
+    COUNT(*) AS ReviewRecords,
+    CAST(100.0 * COUNT(*) / NULLIF(SUM(COUNT(*)) OVER (), 0) AS DECIMAL(10,2))
+        AS ReviewRecordSharePercent
 FROM core.OrderReviews
-
-GROUP BY
-    CASE
-        WHEN review_score >= 4
-            THEN 'Positive (4-5)'
-
-        WHEN review_score <= 2
-            THEN 'Negative (1-2)'
-
-        ELSE 'Neutral (3)'
-    END
-
-ORDER BY
-    ReviewCount DESC;
+GROUP BY CASE
+    WHEN review_score >= 4 THEN 'Positive (4-5)'
+    WHEN review_score <= 2 THEN 'Negative (1-2)'
+    ELSE 'Neutral (3)'
+END
+ORDER BY ReviewRecords DESC;
 GO
 
-
-/* =======================================================
-   4. DELIVERY STATUS VS REVIEW SCORE
-   ======================================================= */
-
-SELECT
-    d.delivery_status,
-
-    COUNT(*) AS ReviewedOrders,
-
-    CAST(
-        AVG(r.review_score * 1.0)
-        AS DECIMAL(10,2)
-    ) AS AverageReviewScore
-
-FROM analytics.vw_DeliveryPerformance AS d
-
-INNER JOIN core.OrderReviews AS r
-    ON d.order_id = r.order_id
-
-WHERE d.delivery_status IN
+/* 4. Delivery status vs average order-level review score */
+WITH ReviewByOrder AS
 (
-    'Late',
-    'On Time'
+    SELECT order_id, AVG(review_score * 1.0) AS AverageOrderReviewScore
+    FROM core.OrderReviews
+    GROUP BY order_id
 )
-
-GROUP BY
-    d.delivery_status
-
-ORDER BY
-    d.delivery_status;
-GO
-
-
-/* =======================================================
-   5. REVIEW DISTRIBUTION BY DELIVERY STATUS
-   ======================================================= */
-
 SELECT
     d.delivery_status,
+    COUNT(*) AS ReviewedOrders,
+    CAST(AVG(r.AverageOrderReviewScore) AS DECIMAL(10,2)) AS AverageReviewScorePerOrder
+FROM analytics.vw_DeliveryPerformance AS d
+INNER JOIN ReviewByOrder AS r ON r.order_id = d.order_id
+WHERE d.delivery_status IN ('Late', 'On Time')
+GROUP BY d.delivery_status
+ORDER BY d.delivery_status;
+GO
 
+/* 5. Review-record distribution by delivery status */
+SELECT
+    d.delivery_status,
     r.review_score,
-
-    COUNT(*) AS ReviewCount
-
+    COUNT(*) AS ReviewRecords
 FROM analytics.vw_DeliveryPerformance AS d
-
-INNER JOIN core.OrderReviews AS r
-    ON d.order_id = r.order_id
-
-WHERE d.delivery_status IN
-(
-    'Late',
-    'On Time'
-)
-
-GROUP BY
-    d.delivery_status,
-    r.review_score
-
-ORDER BY
-    d.delivery_status,
-    r.review_score;
+INNER JOIN core.OrderReviews AS r ON r.order_id = d.order_id
+WHERE d.delivery_status IN ('Late', 'On Time')
+GROUP BY d.delivery_status, r.review_score
+ORDER BY d.delivery_status, r.review_score;
 GO
 
-
-/* =======================================================
-   6. LATE DELIVERY + NEGATIVE REVIEW
-   ======================================================= */
-
+/* 6. Negative review rate by delivery status, at order grain.
+   An order is classified as negative when its mean review score is <= 2. */
+WITH ReviewByOrder AS
+(
+    SELECT order_id, AVG(review_score * 1.0) AS AverageOrderReviewScore
+    FROM core.OrderReviews
+    GROUP BY order_id
+),
+OrdersByDelivery AS
+(
+    SELECT d.delivery_status, r.AverageOrderReviewScore
+    FROM analytics.vw_DeliveryPerformance AS d
+    INNER JOIN ReviewByOrder AS r ON r.order_id = d.order_id
+    WHERE d.delivery_status IN ('Late', 'On Time')
+)
 SELECT
-    d.delivery_status,
-
+    delivery_status,
     COUNT(*) AS ReviewedOrders,
-
-    SUM(
-        CASE
-            WHEN r.review_score <= 2
-            THEN 1
-            ELSE 0
-        END
-    ) AS NegativeReviews,
-
-    CAST(
-        100.0 *
-        SUM(
-            CASE
-                WHEN r.review_score <= 2
-                THEN 1
-                ELSE 0
-            END
-        )
-        / NULLIF(COUNT(*), 0)
-        AS DECIMAL(10,2)
-    ) AS NegativeReviewRate
-
-FROM analytics.vw_DeliveryPerformance AS d
-
-INNER JOIN core.OrderReviews AS r
-    ON d.order_id = r.order_id
-
-WHERE d.delivery_status IN
-(
-    'Late',
-    'On Time'
-)
-
-GROUP BY
-    d.delivery_status;
+    SUM(CASE WHEN AverageOrderReviewScore <= 2 THEN 1 ELSE 0 END) AS NegativeReviewOrders,
+    CAST(100.0 * SUM(CASE WHEN AverageOrderReviewScore <= 2 THEN 1 ELSE 0 END)
+        / NULLIF(COUNT(*), 0) AS DECIMAL(10,2)) AS NegativeReviewOrderRatePercent
+FROM OrdersByDelivery
+GROUP BY delivery_status
+ORDER BY delivery_status;
 GO
 
-
-/* =======================================================
-   7. REVIEW SCORE BY CUSTOMER STATE
-   ======================================================= */
-
+/* 7. Average order-level review score by customer state */
+WITH ReviewByOrder AS
+(
+    SELECT order_id, AVG(review_score * 1.0) AS AverageOrderReviewScore
+    FROM core.OrderReviews
+    GROUP BY order_id
+)
 SELECT
     c.customer_state,
-
     COUNT(*) AS ReviewedOrders,
-
-    CAST(
-        AVG(r.review_score * 1.0)
-        AS DECIMAL(10,2)
-    ) AS AverageReviewScore
-
-FROM core.OrderReviews AS r
-
-INNER JOIN core.Orders AS o
-    ON r.order_id = o.order_id
-
-INNER JOIN core.Customers AS c
-    ON o.customer_id = c.customer_id
-
-GROUP BY
-    c.customer_state
-
+    CAST(AVG(r.AverageOrderReviewScore) AS DECIMAL(10,2)) AS AverageReviewScorePerOrder
+FROM ReviewByOrder AS r
+INNER JOIN core.Orders AS o ON o.order_id = r.order_id
+INNER JOIN core.Customers AS c ON c.customer_id = o.customer_id
+GROUP BY c.customer_state
 HAVING COUNT(*) >= 100
-
-ORDER BY
-    AverageReviewScore;
+ORDER BY AverageReviewScorePerOrder;
 GO
 
-
-/*Major business insight
-
-Late delivery is strongly associated with poorer customer satisfaction in this dataset.
-Compare:
-Average rating
-
-Late       → 2.57
-On Time    → 4.29
-Difference → 1.72 points
-
-That's a substantial difference on a 5-point scale.
-Even more striking:
-Negative review rate
-Late       → 54.02%
-On Time    →  9.24%
-So the negative-review rate among late-delivery orders is roughly 5.85× the rate among on-time orders.
-Portfolio-ready insight
-Late deliveries were associated with a 1.72-point lower average review score (2.57 vs 4.29), 
-while negative-review incidence was 54.02% for late orders compared with 9.24% for on-time orders.
+/* Recompute these descriptive results from the current dataset before
+   publishing numeric claims. This analysis does not establish causation. */
